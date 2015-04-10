@@ -24,8 +24,11 @@
 #ifndef _LINUX_RBTREE_AUGMENTED_H
 #define _LINUX_RBTREE_AUGMENTED_H
 
-#include <linux/compiler.h>
-#include <linux/rbtree.h>
+#include <stddef.h>
+
+#include "compiler.h"
+
+#include "rbtree.h"
 
 /*
  * Please note - only struct rb_augment_callbacks and the prototypes for
@@ -133,7 +136,7 @@ __rb_change_child(struct rb_node *old, struct rb_node *new,
 extern void __rb_erase_color(struct rb_node *parent, struct rb_root *root,
 	void (*augment_rotate)(struct rb_node *old, struct rb_node *new));
 
-static __always_inline struct rb_node *
+static inline struct rb_node *
 __rb_erase_augmented(struct rb_node *node, struct rb_root *root,
 		     const struct rb_augment_callbacks *augment)
 {
@@ -230,7 +233,7 @@ __rb_erase_augmented(struct rb_node *node, struct rb_root *root,
 	return rebalance;
 }
 
-static __always_inline void
+static inline void
 rb_erase_augmented(struct rb_node *node, struct rb_root *root,
 		   const struct rb_augment_callbacks *augment)
 {

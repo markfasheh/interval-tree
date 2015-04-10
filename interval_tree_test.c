@@ -1,7 +1,22 @@
-#include <linux/module.h>
-#include <linux/interval_tree.h>
-#include <linux/random.h>
-#include <asm/timex.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdint.h>
+#include <errno.h>
+#include <time.h>
+
+#include "interval_tree.h"
+
+#define	printk	printf
+#define	KERN_ALERT	""
+#define	u32	uint32_t
+#define	cycles_t	time_t
+#define	get_cycles()	time(NULL)
+#define	div_u64(numerator, denominator)	(numerator / denominator)
+#define	prandom_seed_state(arg1, arg2)	srand((unsigned int)arg2)
+#define	prandom_u32_state(arg1)	rand()
+struct rnd_state {
+	unsigned long	val;
+};
 
 #define NODES        100
 #define PERF_LOOPS   100000
@@ -48,7 +63,7 @@ static int interval_tree_test_init(void)
 {
 	int i, j;
 	unsigned long results;
-	cycles_t time1, time2, time;
+	cycles_t time1, time2, _time;
 
 	printk(KERN_ALERT "interval tree insert/remove");
 
@@ -65,9 +80,9 @@ static int interval_tree_test_init(void)
 	}
 
 	time2 = get_cycles();
-	time = time2 - time1;
+	_time = time2 - time1;
 
-	time = div_u64(time, PERF_LOOPS);
+	_time = div_u64(_time, PERF_LOOPS);
 	printk(" -> %llu cycles\n", (unsigned long long)time);
 
 	printk(KERN_ALERT "interval tree search");
@@ -83,9 +98,9 @@ static int interval_tree_test_init(void)
 			results += search(queries[j], &root);
 
 	time2 = get_cycles();
-	time = time2 - time1;
+	_time = time2 - time1;
 
-	time = div_u64(time, SEARCH_LOOPS);
+	_time = div_u64(_time, SEARCH_LOOPS);
 	results = div_u64(results, SEARCH_LOOPS);
 	printk(" -> %llu cycles (%lu results)\n",
 	       (unsigned long long)time, results);
@@ -98,9 +113,9 @@ static void interval_tree_test_exit(void)
 	printk(KERN_ALERT "test exit\n");
 }
 
-module_init(interval_tree_test_init)
-module_exit(interval_tree_test_exit)
-
-MODULE_LICENSE("GPL");
-MODULE_AUTHOR("Michel Lespinasse");
-MODULE_DESCRIPTION("Interval Tree test");
+int main(int argc, char **argv)
+{
+	interval_tree_test_init();
+	interval_tree_test_exit();
+	return 0;
+}

@@ -19,7 +19,9 @@
   include/linux/interval_tree_generic.h
 */
 
-#include <linux/rbtree_augmented.h>
+#include <stdbool.h>
+
+#include "rbtree_augmented.h"
 
 /*
  * Template for implementing interval trees

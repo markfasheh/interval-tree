@@ -1,7 +1,7 @@
 #ifndef _LINUX_INTERVAL_TREE_H
 #define _LINUX_INTERVAL_TREE_H
 
-#include <linux/rbtree.h>
+#include "rbtree.h"
 
 struct interval_tree_node {
 	struct rb_node rb;

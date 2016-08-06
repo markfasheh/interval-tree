@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <string.h>
+#include <limits.h>
 
 #include "interval_tree.h"
 #include "interval_tree_generic.h"
@@ -16,26 +17,26 @@ static int extents = 0;
 
 static void usage(void)
 {
-	printf("%s [-e] file\n\n", prog);
+	printf("%s [-e] [-S search start] [-E search end] file\n\n", prog);
 	printf("Loads (start, end) pairs from 'file' into an interval tree,\n");
 	printf("and print a count of total space referenced by those pairs.\n");
 	printf("'file' must be in csv format.\n\n");
 	printf("Switches:\n");
-	printf("\t-e\tLoad values in extent format (start, len)\n\n");
+	printf("\t-e\tLoad values in extent format (start, len)\n");
+	printf("\t-S\tStart search from this value (defaults to 0)\n");
+	printf("\t-E\tEnd search from this value (defaults to ULONG_MAX)\n");
+	printf("\n");
 }
 
-static void print_nodes(void)
+static void print_nodes(unsigned long start, unsigned long end)
 {
 	struct interval_tree_node *n = interval_tree_iter_first(&root,
-								0, -1UL);
-
-	if (!n)
-		return;
+								start, end);
 
 	printf("Tree nodes:");
 	while (n) {
 		printf(" (%lu, %lu)", n->start, n->last);
-		n = interval_tree_iter_next(n, 0, -1UL);
+		n = interval_tree_iter_next(n, start, end);
 	}
 	printf("\n");
 }
@@ -82,11 +83,12 @@ static unsigned long count_unique_bytes(struct interval_tree_node *n)
  * Get a total count of space covered in this tree, accounting for any
  * overlap by input intervals.
  */
-static void add_unique_intervals(unsigned long *ret_bytes)
+static void add_unique_intervals(unsigned long *ret_bytes, unsigned long start,
+				 unsigned long end)
 {
 	unsigned long count = 0;
 	struct interval_tree_node *n = interval_tree_iter_first(&root,
-								0, -1UL);
+								start, end);
 
 	if (!n)
 		goto out;
@@ -102,7 +104,7 @@ static void add_unique_intervals(unsigned long *ret_bytes)
 		 * Since count_unique_bytes will be emptying the tree,
 		 * we can grab the first node here
 		 */
-		n = interval_tree_iter_first(&root, 0, -1UL);
+		n = interval_tree_iter_first(&root, start, end);
 	}
 
 out:
@@ -118,12 +120,22 @@ int main(int argc, char **argv)
 	FILE *fp;
 	char line[LINE_LEN];
 	unsigned long unique_space;
+	unsigned long start = 0;
+	unsigned long end = ULONG_MAX;
 
-	while ((c = getopt(argc, argv, "e?"))
+	while ((c = getopt(argc, argv, "e?S:E:"))
 	       != -1) {
 		switch (c) {
 		case 'e':
 			extents = 1;
+			break;
+		case 'S':
+			start = atol(optarg);
+			printf("start: %lu\n", start);
+			break;
+		case 'E':
+			end = atol(optarg);
+			printf("end: %lu\n", end);
 			break;
 		case '?':
 		default:
@@ -132,8 +144,10 @@ int main(int argc, char **argv)
 		}
 	}
 
-	if ((argc - optind) != 1)
+	if ((argc - optind) != 1) {
 		usage();
+		return 1;
+	}
 
 	filename = argv[optind];
 
@@ -172,10 +186,10 @@ int main(int argc, char **argv)
 		interval_tree_insert(n, &root);
 	}
 
-	print_nodes();
+	print_nodes(start, end);
 	printf("\n");
 
-	add_unique_intervals(&unique_space);
+	add_unique_intervals(&unique_space, start, end);
 	printf("Total nonoverapping space is %lu\n", unique_space);
 
 	ret = 0;

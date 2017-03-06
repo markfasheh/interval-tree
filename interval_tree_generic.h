@@ -101,7 +101,7 @@ ITSTATIC void ITPREFIX ## _insert(ITSTRUCT *node, struct rb_root *root)	      \
 		parent = rb_entry(rb_parent, ITSTRUCT, ITRB);		      \
 		if (ITCMP(parent->ITSUBTREE, last) < 0)			      \
 			parent->ITSUBTREE = last;			      \
-		if (ITCMP(start, ITSTART(parent)))			      \
+		if (ITCMP(start, ITSTART(parent)) < 0)			      \
 			link = &parent->ITRB.rb_left;			      \
 		else							      \
 			link = &parent->ITRB.rb_right;			      \

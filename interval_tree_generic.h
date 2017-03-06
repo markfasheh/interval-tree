@@ -38,25 +38,47 @@
  * Note - before using this, please consider if non-generic version
  * (interval_tree.h) would work for you...
  */
-
-#define INTERVAL_TREE_DEFINE(ITSTRUCT, ITRB, ITTYPE, ITSUBTREE,		      \
+#define INTERVAL_TREE_DEFINE(ITSTRUCT, ITRB, ITTYPE, ITSUBTREE,		\
 			     ITSTART, ITLAST, ITSTATIC, ITPREFIX)	      \
 									      \
+static inline int ITPREFIX ## _cmp(ITTYPE a, ITTYPE b)			      \
+{									      \
+	if (a < b)							      \
+		return -1;						      \
+	else if (a > b)							      \
+		return 1;						      \
+	else								      \
+		return 0;						      \
+}									      \
+KEYED_INTERVAL_TREE_DEFINE(ITSTRUCT, ITRB, ITTYPE, ITSUBTREE, ITSTART, ITLAST,\
+			   ITPREFIX ## _cmp, ITSTATIC, ITPREFIX)
+
+/*
+ * int iTCMP(ITTYPE endpoint1, ITTYPE endpoint2);
+ * Returns:
+ * < 0 if endpoint1 < endpoint2
+ *  0  if endpoint1 == endpoint2
+ * > 0 if endpoint1 > endpoint2
+ */
+#define KEYED_INTERVAL_TREE_DEFINE(ITSTRUCT, ITRB, ITTYPE, ITSUBTREE,	\
+				   ITSTART, ITLAST, ITCMP, ITSTATIC, ITPREFIX)\
 /* Callbacks for augmented rbtree insert and remove */			      \
 									      \
 static inline ITTYPE ITPREFIX ## _compute_subtree_last(ITSTRUCT *node)	      \
 {									      \
-	ITTYPE max = ITLAST(node), subtree_last;			      \
+	ITTYPE max = ITLAST(node);					      \
+	ITTYPE subtree_last;						      \
+									      \
 	if (node->ITRB.rb_left) {					      \
 		subtree_last = rb_entry(node->ITRB.rb_left,		      \
 					ITSTRUCT, ITRB)->ITSUBTREE;	      \
-		if (max < subtree_last)					      \
+		if (ITCMP(max, subtree_last) < 0)			      \
 			max = subtree_last;				      \
 	}								      \
 	if (node->ITRB.rb_right) {					      \
 		subtree_last = rb_entry(node->ITRB.rb_right,		      \
 					ITSTRUCT, ITRB)->ITSUBTREE;	      \
-		if (max < subtree_last)					      \
+		if (ITCMP(max, subtree_last) < 0)			      \
 			max = subtree_last;				      \
 	}								      \
 	return max;							      \
@@ -70,15 +92,16 @@ RB_DECLARE_CALLBACKS(static, ITPREFIX ## _augment, ITSTRUCT, ITRB,	      \
 ITSTATIC void ITPREFIX ## _insert(ITSTRUCT *node, struct rb_root *root)	      \
 {									      \
 	struct rb_node **link = &root->rb_node, *rb_parent = NULL;	      \
-	ITTYPE start = ITSTART(node), last = ITLAST(node);		      \
+	ITTYPE start = ITSTART(node);					      \
+	ITTYPE last = ITLAST(node);					      \
 	ITSTRUCT *parent;						      \
 									      \
 	while (*link) {							      \
 		rb_parent = *link;					      \
 		parent = rb_entry(rb_parent, ITSTRUCT, ITRB);		      \
-		if (parent->ITSUBTREE < last)				      \
+		if (ITCMP(parent->ITSUBTREE, last) < 0)			      \
 			parent->ITSUBTREE = last;			      \
-		if (start < ITSTART(parent))				      \
+		if (ITCMP(start, ITSTART(parent)))			      \
 			link = &parent->ITRB.rb_left;			      \
 		else							      \
 			link = &parent->ITRB.rb_right;			      \
@@ -114,7 +137,7 @@ ITPREFIX ## _subtree_search(ITSTRUCT *node, ITTYPE start, ITTYPE last)	      \
 		if (node->ITRB.rb_left) {				      \
 			ITSTRUCT *left = rb_entry(node->ITRB.rb_left,	      \
 						  ITSTRUCT, ITRB);	      \
-			if (start <= left->ITSUBTREE) {			      \
+			if (ITCMP(start, left->ITSUBTREE) <= 0) {	      \
 				/*					      \
 				 * Some nodes in left subtree satisfy Cond2.  \
 				 * Iterate to find the leftmost such node N.  \
@@ -127,13 +150,13 @@ ITPREFIX ## _subtree_search(ITSTRUCT *node, ITTYPE start, ITTYPE last)	      \
 				continue;				      \
 			}						      \
 		}							      \
-		if (ITSTART(node) <= last) {		/* Cond1 */	      \
-			if (start <= ITLAST(node))	/* Cond2 */	      \
+		if (ITCMP(ITSTART(node), last) <= 0) {		/* Cond1 */   \
+			if (ITCMP(start, ITLAST(node)) <= 0)	/* Cond2 */ \
 				return node;	/* node is leftmost match */  \
 			if (node->ITRB.rb_right) {			      \
 				node = rb_entry(node->ITRB.rb_right,	      \
 						ITSTRUCT, ITRB);	      \
-				if (start <= node->ITSUBTREE)		      \
+				if (ITCMP(start, node->ITSUBTREE) <= 0)	      \
 					continue;			      \
 			}						      \
 		}							      \
@@ -149,7 +172,7 @@ ITPREFIX ## _iter_first(struct rb_root *root, ITTYPE start, ITTYPE last)      \
 	if (!root->rb_node)						      \
 		return NULL;						      \
 	node = rb_entry(root->rb_node, ITSTRUCT, ITRB);			      \
-	if (node->ITSUBTREE < start)					      \
+	if (ITCMP(node->ITSUBTREE, start) < 0)				      \
 		return NULL;						      \
 	return ITPREFIX ## _subtree_search(node, start, last);		      \
 }									      \
@@ -169,7 +192,7 @@ ITPREFIX ## _iter_next(ITSTRUCT *node, ITTYPE start, ITTYPE last)	      \
 		 */							      \
 		if (rb) {						      \
 			ITSTRUCT *right = rb_entry(rb, ITSTRUCT, ITRB);	      \
-			if (start <= right->ITSUBTREE)			      \
+			if (ITCMP(start, right->ITSUBTREE) <= 0)	      \
 				return ITPREFIX ## _subtree_search(right,     \
 								start, last); \
 		}							      \
@@ -185,9 +208,9 @@ ITPREFIX ## _iter_next(ITSTRUCT *node, ITTYPE start, ITTYPE last)	      \
 		} while (prev == rb);					      \
 									      \
 		/* Check if the node intersects [start;last] */		      \
-		if (last < ITSTART(node))		/* !Cond1 */	      \
+		if (ITCMP(last, ITSTART(node)) < 0)		/* !Cond1 */ \
 			return NULL;					      \
-		else if (start <= ITLAST(node))		/* Cond2 */	      \
+		else if (ITCMP(start, ITLAST(node)) <= 0)	/* Cond2 */ \
 			return node;					      \
 	}								      \
 }
